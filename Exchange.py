@@ -1,6 +1,8 @@
-import datetime
+
 from flask import Flask, render_template, request
 from flask_restful import Api, Resource
+from flasgger import Swagger
+
 import datetime
 
 import BinanceApi
@@ -18,6 +20,22 @@ class Exchange(Resource):
         pass
 
     def get(self):
+        """
+        Retrieve Snapshot Crypto Currency Prices List
+        ---
+        responses:
+          200:
+            description: List of crypto prices
+            schema:
+              id: CurrencyPair
+              properties:
+                prices:
+                  type: json
+                  description: List of Currency Pair with prices
+                timestamp:
+                  type: string
+                  description: snapshot timestamp
+        """
         global prices_cache
         prices = {
             "prices": prices_cache.__cache__,
@@ -28,14 +46,60 @@ class Exchange(Resource):
 
 class OptionCalculation(Resource):
 
-    def get(self):
+    def get(self, stock, expiry, opt_type):
+        """
+                    Option Equity Price Calculation
+                    ---
+                    parameters:
+                      - in: path
+                        name: stock
+                        type: string
+                        required: true
+                      - in: path
+                        name: expiry
+                        type: integer
+                        required: true
+                      - in: path
+                        name: opt_type
+                        type: string
+                        enum: ['call', 'put']
+                        required: true
+                    responses:
+                      200:
+                        description: Option Price
+                        schema:
+                          id: OptionPrice
+                          properties:
+                            stock:
+                              type: string
+                              description: Stock Name requested
+                            expiry:
+                              type: string
+                              description: expiry in years
+                            type:
+                              type: string
+                              description: Option type
+                            option_price:
+                              type: string
+                              description: Option price calculated
+                            stock_price:
+                              type: string
+                              description: Stock prices used as reference
+                            strike:
+                              type: string
+                              description: Option strike (absolute)
+                            strike_pct:
+                              type: string
+                              description: Option strike (in pct)
+                    """
         print("New Option request...")
-        args = request.args
-        stock_name = args.get('stock')
+        print('Stock: {}, Expiry: {} Option Type: {}'.format(stock, expiry, opt_type))
+        #args = request.args
+        stock_name = stock#args.get('stock')
 
         try:
-            expiry = self.get_expiry(args)
-            option_type = self.get_option_type(args)
+            expiry = self.get_expiry(expiry)
+            option_type = self.get_option_type(opt_type)
             option_price, stock_price, strike, strike_pct = self.calculate_option(expiry, stock_name, option_type)
 
             price = {
@@ -56,15 +120,15 @@ class OptionCalculation(Resource):
             }
             return bad_request, 400
 
-    def get_option_type(self, args):
-        option_type = args.get('opt_type')
+    def get_option_type(self, option_type):
+        #option_type = args.get('opt_type')
         valid_type = option_type in ["put", "call"]
         if not valid_type:
             raise Exception("Invalid type {}".format(valid_type))
         return option_type
 
-    def get_expiry(self, args):
-        expiry = args.get('expiry')
+    def get_expiry(self, expiry):
+        #expiry = args.get('expiry')
         try:
             return float(expiry)
         except Exception as e:
@@ -113,8 +177,10 @@ class OptionCalculation(Resource):
 
 app = Flask(__name__)
 api = Api(app)
+SWAGGER_TEMPLATE = {"securityDefinitions": {"APIKeyHeader": {"type": "apiKey", "name": "x-access-token", "in": "header"}}}
+swagger = Swagger(app, template=SWAGGER_TEMPLATE)
 api.add_resource(Exchange, "/api/rest/prices")
-api.add_resource(OptionCalculation, "/api/rest/option_prices")
+api.add_resource(OptionCalculation, "/api/rest/option_prices/<stock>/<expiry>/<opt_type>")
 
 
 @app.route('/')

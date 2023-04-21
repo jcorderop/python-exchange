@@ -25,6 +25,14 @@ python Exchange.py
 
 == Service EndPoint
 
-http://localhost:5000/api/rest/prices
+    http://localhost:5000/api/rest/prices
 
-commit
+== Swagger
+
+* Using Flask RESTful Resources
+
+    https://github.com/flasgger/flasgger
+
+* Access
+
+    http://localhost:5000/apidocs/
